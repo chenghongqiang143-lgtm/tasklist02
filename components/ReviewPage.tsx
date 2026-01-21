@@ -262,18 +262,18 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
               { icon: Trophy, label: '事项', val: tasksDone, total: tasksTotal },
               { icon: CheckCircle2, label: '习惯', val: habitsDone, total: habitsTotal }
             ].map((item, idx) => (
-              <div key={idx} className="relative p-3 rounded-sm flex flex-col h-24 transition-transform active:scale-95 overflow-hidden" style={{ background: themeGradient }}>
+              <div key={idx} className="relative p-3 rounded-sm flex flex-col h-20 transition-transform active:scale-95 overflow-hidden" style={{ background: themeGradient }}>
                 {/* Icon positioned at top-left: left-2 top-2 */}
                 <div className="absolute top-2 left-2">
-                   <item.icon size={28} className="text-white/40" strokeWidth={2} />
+                   <item.icon size={24} className="text-white/40" strokeWidth={2} />
                 </div>
                 
                 {/* Content moved to bottom right: right-2 bottom-1 */}
                 <div className="absolute bottom-1 right-2 text-right">
-                  <span className="text-4xl font-black mono text-white leading-none tracking-tighter block drop-shadow-sm">
-                    {item.val}{item.total !== undefined && <span className="text-xs opacity-60 ml-0.5">/{item.total}</span>}
+                  <span className="text-2xl font-black mono text-white leading-none tracking-tighter block drop-shadow-sm">
+                    {item.val}{item.total !== undefined && <span className="text-[10px] opacity-60 ml-0.5">/{item.total}</span>}
                   </span>
-                  <span className="text-[10px] font-black text-white/70 uppercase mt-0.5 tracking-widest block">{item.label} {item.unit}</span>
+                  <span className="text-[9px] font-black text-white/70 uppercase mt-0.5 tracking-widest block">{item.label} {item.unit}</span>
                 </div>
               </div>
             ))}

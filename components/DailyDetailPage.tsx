@@ -23,11 +23,12 @@ interface DailyDetailPageProps {
   onOpenSidebar: () => void;
   onUpdateTask: (task: Task) => void;
   onUpdateHabit: (habit: Habit) => void; // Added for habit timer update
+  onCreateTemporaryTask: () => void;
   theme: ThemeOption;
 }
 
 const DailyDetailPage: React.FC<DailyDetailPageProps> = ({ 
-  days, goals = [], habits = [], activeDate, onDateChange, onToggleTaskComplete, onToggleHabitComplete, onToggleHabitInstance, onRetractTask, onEditTask, onOpenSidebar, onUpdateTask, onUpdateHabit, theme, onOpenQuickMenu 
+  days, goals = [], habits = [], activeDate, onDateChange, onToggleTaskComplete, onToggleHabitComplete, onToggleHabitInstance, onRetractTask, onEditTask, onOpenSidebar, onUpdateTask, onUpdateHabit, onCreateTemporaryTask, theme, onOpenQuickMenu 
 }) => {
   const activeDay = days.find(d => d.date === activeDate);
   const todayDate = new Date().getDate();
@@ -54,7 +55,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
   const [touchEnd, setTouchEnd] = useState(0);
   const minSwipeDistance = 50;
 
-  const themeGradient = `linear-gradient(135deg, ${theme.color}, ${theme.color}99)`;
+  const themeGradient = `linear-gradient(135deg, ${theme.color}, ${theme.color}CC)`;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -205,45 +206,53 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
     const progress = Math.min(100, (activePomodoro.elapsedSeconds / (activePomodoro.targetMinutes * 60)) * 100);
     
     return createPortal(
-      <div className="fixed inset-0 z-[2000] bg-slate-900/90 flex flex-col items-center justify-center p-8 backdrop-blur-sm animate-in fade-in duration-300">
+      <div 
+        className="fixed inset-0 z-[2000] flex flex-col items-center justify-center p-8 backdrop-blur-md animate-in fade-in duration-300"
+        style={{ background: themeGradient }}
+      >
         <div className="w-full max-w-sm text-center">
-          <div className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-4">Focusing on</div>
-          <h2 className="text-2xl font-bold text-white mb-12">{activePomodoro.title}</h2>
+          <div className="text-white/60 text-xs font-black uppercase tracking-[0.2em] mb-4">Focusing on</div>
+          <h2 className="text-2xl font-bold text-white mb-12 drop-shadow-md">{activePomodoro.title}</h2>
           
           <div className="relative w-64 h-64 mx-auto mb-12 flex items-center justify-center">
-             <div className="absolute inset-0 rounded-full border-4 border-slate-800" />
+             {/* Background Ring */}
+             <div className="absolute inset-0 rounded-full border-4 border-white/20" />
+             
+             {/* Progress Ring */}
              <svg className="absolute inset-0 w-full h-full -rotate-90">
                <circle 
                  cx="128" cy="128" r="124" 
                  fill="none" 
-                 stroke={theme.color} 
+                 stroke="white" 
                  strokeWidth="4"
                  strokeDasharray="779" // 2 * PI * 124
                  strokeDashoffset={779 - (779 * progress) / 100}
                  strokeLinecap="round"
-                 className="transition-all duration-1000 ease-linear"
+                 className="transition-all duration-1000 ease-linear drop-shadow-lg"
                />
              </svg>
-             <div className="text-6xl font-black mono text-white tracking-tight">
+             
+             {/* Timer Text */}
+             <div className="text-6xl font-black mono text-white tracking-tight drop-shadow-md">
                {formatTime(activePomodoro.elapsedSeconds)}
              </div>
           </div>
 
-          <div className="flex items-center justify-center gap-6">
+          <div className="flex items-center justify-center gap-8">
             <button 
               onClick={() => setActivePomodoro(prev => prev ? { ...prev, isRunning: !prev.isRunning } : null)}
-              className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-slate-900 active:scale-95 transition-all shadow-lg shadow-white/10"
+              className="w-20 h-20 rounded-full bg-white flex items-center justify-center text-slate-900 active:scale-95 transition-all shadow-xl hover:bg-slate-50"
             >
-               {activePomodoro.isRunning ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1"/>}
+               {activePomodoro.isRunning ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1"/>}
             </button>
             <button 
               onClick={() => stopPomodoro(true)}
-              className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-white active:scale-95 transition-all"
+              className="w-16 h-16 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center text-white active:scale-95 transition-all hover:bg-black/30"
             >
-               <StopCircle size={28} />
+               <StopCircle size={24} />
             </button>
           </div>
-          <button onClick={() => stopPomodoro(false)} className="mt-8 text-slate-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">取消专注</button>
+          <button onClick={() => stopPomodoro(false)} className="mt-12 text-white/50 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">取消专注</button>
         </div>
       </div>,
       document.body
@@ -272,7 +281,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
           </div>
           
           {/* Sliding Container for Lists */}
-          {/* Use explicit height and flex, avoid absolute positioning for the wrapper to ensure visibility */}
+          {/* Critical Fix: shrink-0 on child containers prevents them from collapsing in the flex parent */}
           <div 
             className="w-full overflow-hidden"
             style={{ height: '50vh' }}
@@ -285,7 +294,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
               style={{ width: '200%', transform: `translateX(${assignTab === 'tasks' ? '0%' : '-50%'})` }}
             >
               {/* Tasks List */}
-              <div className="w-1/2 h-full overflow-y-auto no-scrollbar space-y-2 px-1">
+              <div className="w-1/2 h-full overflow-y-auto no-scrollbar space-y-2 px-1 shrink-0">
                 {activeDay?.tasks.filter(t => !t.time && t.priority !== 'waiting').map(t => {
                   const krInfo = getKrInfo(t.krId);
                   const isImportant = t.priority === 'important';
@@ -313,7 +322,7 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
               </div>
 
               {/* Habits List */}
-              <div className="w-1/2 h-full overflow-y-auto no-scrollbar space-y-2 px-1">
+              <div className="w-1/2 h-full overflow-y-auto no-scrollbar space-y-2 px-1 shrink-0">
                 {habits?.map(h => {
                   const krInfo = getKrInfo(h.krId);
                   return (
@@ -553,6 +562,16 @@ const DailyDetailPage: React.FC<DailyDetailPageProps> = ({
           })}
         </div>
       </main>
+      
+      {/* Floating Action Button for creating temporary task */}
+      <button
+        onClick={onCreateTemporaryTask}
+        className="fixed bottom-24 right-6 w-12 h-12 rounded-lg shadow-xl flex items-center justify-center text-white z-50 active:scale-90 transition-transform hover:brightness-110"
+        style={{ background: theme.color }}
+      >
+        <Plus size={24} strokeWidth={3} />
+      </button>
+
       {renderPlanningModal()}
       {renderPomodoroOverlay()}
     </div>

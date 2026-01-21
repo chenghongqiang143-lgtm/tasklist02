@@ -663,6 +663,17 @@ const TaskLibraryPage: React.FC<TaskLibraryPageProps> = ({
         </div>
       </div>
       
+      {/* Floating Action Button for adding new items */}
+      {!isSelectionMode && (
+        <button
+          onClick={() => onCreateItem(activeMainTab)}
+          className="fixed bottom-24 right-6 w-12 h-12 rounded-lg shadow-xl flex items-center justify-center text-white z-50 active:scale-90 transition-transform hover:brightness-110"
+          style={{ background: theme.color }}
+        >
+          <Plus size={24} strokeWidth={3} />
+        </button>
+      )}
+      
       {/* 底部多选操作栏 - 使用 createPortal 修复层级和上下文问题，样式匹配新的 BottomNav */}
       {isSelectionMode && createPortal(
          <div className="fixed bottom-4 left-4 right-4 h-[68px] bg-slate-900 text-white flex items-center justify-between px-6 z-[200] rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.3)] animate-in slide-in-from-bottom duration-300 gap-6">
