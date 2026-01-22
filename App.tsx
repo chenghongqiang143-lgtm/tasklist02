@@ -160,7 +160,8 @@ const App: React.FC = () => {
   const [activeLibraryTab, setActiveLibraryTab] = useState<'task' | 'habit' | 'goal'>('task');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeOption>(THEME_OPTIONS[0]);
-  const [isAutoTheme, setIsAutoTheme] = useState(false); // New state
+  const [isAutoTheme, setIsAutoTheme] = useState(false);
+  const [isRolloverEnabled, setIsRolloverEnabled] = useState(true); // Default to true
 
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
@@ -201,6 +202,7 @@ const App: React.FC = () => {
           } else {
              if (parsed.theme) setTheme(parsed.theme);
           }
+          if (parsed.isRolloverEnabled !== undefined) setIsRolloverEnabled(parsed.isRolloverEnabled);
         }
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -225,7 +227,8 @@ const App: React.FC = () => {
       reflectionTemplates,
       scoreDefs,
       theme,
-      isAutoTheme, // Save this setting
+      isAutoTheme,
+      isRolloverEnabled,
       version: '2.8.5',
       timestamp: Date.now(),
     };
@@ -235,7 +238,63 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Failed to save data:', error);
     }
-  }, [days, library, habits, goals, rewards, purchaseHistory, reflectionTemplates, scoreDefs, theme, isAutoTheme, isDataLoaded]);
+  }, [days, library, habits, goals, rewards, purchaseHistory, reflectionTemplates, scoreDefs, theme, isAutoTheme, isRolloverEnabled, isDataLoaded]);
+
+  // Logic for Auto Rollover of incomplete tasks
+  useEffect(() => {
+    if (isDataLoaded && isRolloverEnabled) {
+      const today = new Date().getDate();
+      
+      setDays(prevDays => {
+        const todayIndex = prevDays.findIndex(d => d.date === today);
+        // Only proceed if today is found and there is a yesterday in the current week view
+        if (todayIndex <= 0) return prevDays; 
+
+        const prevDay = prevDays[todayIndex - 1];
+        const currentDay = prevDays[todayIndex];
+
+        // Identify tasks to rollover: 
+        // 1. Not completed
+        // 2. Not of type 'empty' (assuming 'empty' is a placeholder)
+        // This includes tasks with time (timeline) and without time (unarranged), and temporary tasks.
+        const tasksToMove = prevDay.tasks.filter(t => !t.completed && t.type !== 'empty');
+
+        if (tasksToMove.length === 0) return prevDays;
+
+        // Remove moved tasks from Previous Day (so they don't stay as incomplete yesterday)
+        const newPrevDay = {
+          ...prevDay,
+          tasks: prevDay.tasks.filter(t => t.completed || t.type === 'empty')
+        };
+
+        // Prepare tasks for Current Day (Reset time to make them "Unarranged")
+        const movedTasks = tasksToMove.map(t => ({
+          ...t,
+          date: today, // Update date to today
+          time: undefined, // Reset time so it goes to 'Unarranged' pool
+          // We keep the ID. If this causes React key issues (duplicates across days during transition), 
+          // it should be fine as they are removed from prev day.
+        }));
+
+        // Prevent duplicates in current day (check by ID)
+        const currentIds = new Set(currentDay.tasks.map(t => t.id));
+        const uniqueMovedTasks = movedTasks.filter(t => !currentIds.has(t.id));
+
+        if (uniqueMovedTasks.length === 0 && tasksToMove.length === 0) return prevDays;
+
+        const newCurrentDay = {
+          ...currentDay,
+          tasks: [...currentDay.tasks, ...uniqueMovedTasks]
+        };
+
+        const newDays = [...prevDays];
+        newDays[todayIndex - 1] = newPrevDay;
+        newDays[todayIndex] = newCurrentDay;
+
+        return newDays;
+      });
+    }
+  }, [isDataLoaded, isRolloverEnabled]);
 
   // ... (Rest of logic remains same)
   const totalEarned = useMemo(() => {
@@ -254,26 +313,67 @@ const App: React.FC = () => {
   }, []);
 
   const handleToggleTaskComplete = (taskId: string) => {
-    setDays(prev => prev.map(d => ({
-      ...d,
-      tasks: d.tasks.map(t => {
-        if (t.id === taskId || t.originalId === taskId) {
-          if (!t.targetCount) {
-             return { ...t, completed: !t.completed, lastCompletedAt: !t.completed ? Date.now() : t.lastCompletedAt };
-          }
-          const current = t.accumulatedCount || 0;
-          const target = t.targetCount;
-          const nextCount = current >= target ? 0 : current + 1;
-          return {
-            ...t,
-            accumulatedCount: nextCount,
-            completed: nextCount >= target,
-            lastCompletedAt: nextCount > current ? Date.now() : t.lastCompletedAt
-          };
-        }
-        return t;
-      })
-    })));
+    let taskToUpdate: Task | undefined;
+    let dayIndex = -1;
+    let taskIndex = -1;
+
+    // Find the task in state to calculate new values
+    for (let i = 0; i < days.length; i++) {
+       const idx = days[i].tasks.findIndex(t => t.id === taskId || t.originalId === taskId);
+       if (idx > -1) {
+         taskToUpdate = days[i].tasks[idx];
+         dayIndex = i;
+         taskIndex = idx;
+         break;
+       }
+    }
+
+    if (!taskToUpdate) return;
+
+    const now = Date.now();
+    let newCompleted = taskToUpdate.completed;
+    let newAccumulated = taskToUpdate.accumulatedCount;
+    let newLastCompletedAt = taskToUpdate.lastCompletedAt;
+
+    if (!taskToUpdate.targetCount) {
+        newCompleted = !taskToUpdate.completed;
+        // Only update time if marking as completed
+        if (newCompleted) newLastCompletedAt = now;
+    } else {
+        const current = taskToUpdate.accumulatedCount || 0;
+        const target = taskToUpdate.targetCount;
+        const nextCount = current >= target ? 0 : current + 1;
+        newAccumulated = nextCount;
+        newCompleted = nextCount >= target;
+        // Update time if progress made
+        if (nextCount > current) newLastCompletedAt = now;
+    }
+
+    // Update Days
+    setDays(prev => {
+        const newDays = [...prev];
+        const day = { ...newDays[dayIndex] };
+        const tasks = [...day.tasks];
+        tasks[taskIndex] = {
+            ...taskToUpdate!,
+            completed: newCompleted,
+            accumulatedCount: newAccumulated,
+            lastCompletedAt: newLastCompletedAt
+        };
+        day.tasks = tasks;
+        newDays[dayIndex] = day;
+        return newDays;
+    });
+
+    // Update Library to reflect recent completion
+    if (taskToUpdate.originalId) {
+        setLibrary(prev => prev.map(t => {
+            if (t.id === taskToUpdate!.originalId) {
+                return { ...t, lastCompletedAt: newLastCompletedAt };
+            }
+            return t;
+        }));
+    }
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
@@ -309,7 +409,8 @@ const App: React.FC = () => {
           accumulatedCount: updatedTask.accumulatedCount,
           subtasks: updatedTask.subtasks,
           priority: updatedTask.priority,
-          trackingMode: updatedTask.trackingMode
+          trackingMode: updatedTask.trackingMode,
+          lastCompletedAt: updatedTask.lastCompletedAt // Ensure this syncs back
         } : t));
       }
     }
@@ -471,7 +572,8 @@ const App: React.FC = () => {
       reflectionTemplates,
       scoreDefs,
       theme,
-      isAutoTheme
+      isAutoTheme,
+      isRolloverEnabled
     };
     try {
       const json = JSON.stringify(data, null, 2);
@@ -499,6 +601,7 @@ const App: React.FC = () => {
       if (data.scoreDefs) setScoreDefs(data.scoreDefs);
       if (data.theme) setTheme(data.theme);
       if (data.isAutoTheme !== undefined) setIsAutoTheme(data.isAutoTheme);
+      if (data.isRolloverEnabled !== undefined) setIsRolloverEnabled(data.isRolloverEnabled);
       alert('数据恢复成功！');
       setIsSidebarOpen(false);
     } catch (e) {
@@ -795,6 +898,8 @@ const App: React.FC = () => {
           onRestore={handleRestore}
           isAutoTheme={isAutoTheme}
           onToggleAutoTheme={setIsAutoTheme}
+          isRolloverEnabled={isRolloverEnabled}
+          onToggleRollover={setIsRolloverEnabled}
         />
 
         {renderGlobalOverlays()}

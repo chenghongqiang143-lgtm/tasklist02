@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Palette, User, Shield, Download, Upload, Trash2, Copy, Info, Shuffle } from 'lucide-react';
+import { Palette, User, Shield, Download, Upload, Trash2, Copy, Info, Shuffle, Repeat } from 'lucide-react';
 import { ThemeOption } from '../types';
 import { THEME_OPTIONS } from '../constants';
 
@@ -14,9 +14,11 @@ interface SidebarProps {
   onRestore: (json: string) => void;
   isAutoTheme: boolean;
   onToggleAutoTheme: (enabled: boolean) => void;
+  isRolloverEnabled: boolean;
+  onToggleRollover: (enabled: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThemeChange, onClearTasks, onBackup, onRestore, isAutoTheme, onToggleAutoTheme }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThemeChange, onClearTasks, onBackup, onRestore, isAutoTheme, onToggleAutoTheme, isRolloverEnabled, onToggleRollover }) => {
   const [restoreInput, setRestoreInput] = useState('');
 
   return (
@@ -65,6 +67,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentTheme, onThem
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* Feature Settings */}
+          <section className="space-y-3">
+             <p className="text-[10px] font-black text-slate-300 tracking-widest uppercase mb-2 flex items-center gap-2">
+                <Shield size={12} /> 功能偏好
+             </p>
+             <button 
+                onClick={() => onToggleRollover(!isRolloverEnabled)}
+                className="w-full flex items-center justify-between p-3.5 bg-slate-50 rounded-sm active:scale-[0.98] transition-all"
+             >
+                <div className="flex items-center gap-3">
+                   <Repeat size={14} className="text-slate-400" />
+                   <div className="flex flex-col items-start">
+                      <span className="text-xs font-bold text-slate-600">自动顺延任务</span>
+                      <span className="text-[9px] font-medium text-slate-400">将昨日未完成事项移至今日</span>
+                   </div>
+                </div>
+                <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${isRolloverEnabled ? 'bg-green-500' : 'bg-slate-200'}`}>
+                   <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${isRolloverEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                </div>
+             </button>
           </section>
 
           {/* Data Management Section */}

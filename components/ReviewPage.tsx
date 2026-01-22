@@ -65,8 +65,21 @@ const ReviewPage: React.FC<ReviewPageProps> = ({
   };
 
   const currentWeekData = useMemo(() => {
-    return days.slice(0, 7); // For review history section
-  }, [days]);
+    const now = new Date();
+    const day = now.getDay() || 7; 
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - day + 1 + (statsWeekOffset * 7));
+
+    const weekDays: DayInfo[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateVal = d.getDate();
+      const found = days.find(day => day.date === dateVal);
+      if (found) weekDays.push(found);
+    }
+    return weekDays;
+  }, [days, statsWeekOffset]);
 
   // Generate data for the Stats Overlay based on statsWeekOffset
   const statsWeekData: ChartData[] = useMemo(() => {
